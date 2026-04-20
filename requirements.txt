@@ -9,3 +9,4 @@ flask-wtf
 google-generativeai
 Pillow
 pymongo[srv]
+gunicorn
