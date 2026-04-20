@@ -1,0 +1,178 @@
+{% extends 'base.html' %}
+{% block title %}Find CA / Tax Advisor{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="header-text">
+        <h1>Find CA / Tax Advisor</h1>
+        <p>Top chartered accountancy firms for tax planning and compliance</p>
+    </div>
+</div>
+
+<!-- Compliance Notice -->
+<div class="alert alert-info" style="margin-bottom: 28px;" id="ca-notice">
+    <span class="alert-icon">⚖️</span>
+    <span class="alert-text">All firms listed focus on legal tax planning, compliance, and advisory services only.</span>
+    <button class="alert-close" onclick="this.parentElement.remove()">×</button>
+</div>
+
+<!-- Filters -->
+<div class="card filter-bar" id="ca-filters">
+    <div class="filter-row">
+        <div class="filter-group">
+            <label class="filter-label">Best For</label>
+            <div class="filter-chips" id="caTypeFilter">
+                <button class="chip chip-active" data-type="all" onclick="filterCA('all')">All</button>
+                <button class="chip" data-type="startups" onclick="filterCA('startups')">Startups</button>
+                <button class="chip" data-type="individuals" onclick="filterCA('individuals')">Individuals</button>
+                <button class="chip" data-type="corporates" onclick="filterCA('corporates')">Corporates</button>
+            </div>
+        </div>
+        <div class="filter-group">
+            <label class="filter-label">Search</label>
+            <input type="text" class="input filter-select" placeholder="Search firms..." id="caSearch" oninput="searchCA(this.value)">
+        </div>
+    </div>
+</div>
+
+<!-- CA Firm Cards -->
+<div class="ca-grid" id="caGrid">
+    <!-- Filled by JS -->
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const CA_FIRMS = [
+    {
+        name: "Deloitte India",
+        logo: "🟢",
+        color: "#86BC25",
+        description: "One of the Big Four, Deloitte provides audit, consulting, financial advisory, risk management, and tax services across India with 50,000+ professionals.",
+        services: ["Tax Planning", "Audit & Assurance", "Financial Advisory", "Risk Management", "Consulting"],
+        bestFor: ["corporates", "startups"],
+        website: "https://www2.deloitte.com/in/en.html",
+        founded: "1845",
+        offices: "Mumbai, Delhi, Bengaluru, Hyderabad, Chennai, Kolkata"
+    },
+    {
+        name: "PwC India",
+        logo: "🟠",
+        color: "#E0701E",
+        description: "PricewaterhouseCoopers offers world-class tax advisory, assurance, and consulting services. Known for strong expertise in transfer pricing and international tax.",
+        services: ["Tax Advisory", "Assurance", "Consulting", "Deals Advisory", "Transfer Pricing"],
+        bestFor: ["corporates", "startups"],
+        website: "https://www.pwc.in/",
+        founded: "1998",
+        offices: "Mumbai, Delhi, Kolkata, Bengaluru, Chennai, Ahmedabad"
+    },
+    {
+        name: "Ernst & Young (EY India)",
+        logo: "🟡",
+        color: "#FFE600",
+        description: "EY India delivers tax, transaction advisory, and assurance services. Especially strong in GST advisory, startup tax compliance, and digital transformation.",
+        services: ["Tax Compliance", "GST Advisory", "Transaction Advisory", "Assurance", "Startup Advisory"],
+        bestFor: ["startups", "individuals", "corporates"],
+        website: "https://www.ey.com/en_in",
+        founded: "1989",
+        offices: "Mumbai, Delhi, Bengaluru, Pune, Hyderabad, Chennai"
+    },
+    {
+        name: "KPMG India",
+        logo: "🔵",
+        color: "#00338D",
+        description: "KPMG offers audit, tax, and advisory services with deep expertise in regulatory compliance, indirect taxes, and corporate restructuring across India.",
+        services: ["Tax & Regulatory", "Audit", "Advisory", "Corporate Restructuring", "Indirect Tax"],
+        bestFor: ["corporates", "individuals"],
+        website: "https://kpmg.com/in/en/home.html",
+        founded: "1993",
+        offices: "Mumbai, Delhi, Bengaluru, Chennai, Hyderabad, Kolkata"
+    },
+    {
+        name: "BDO India",
+        logo: "🔴",
+        color: "#ED1C24",
+        description: "BDO India provides personalized tax advisory, audit, and consulting services. Ideal for mid-size companies, HNIs, and startups seeking cost-effective CA services.",
+        services: ["Tax Advisory", "Audit & Assurance", "Business Advisory", "Outsourcing", "Personal Tax"],
+        bestFor: ["startups", "individuals"],
+        website: "https://www.bdo.in/",
+        founded: "1963",
+        offices: "Mumbai, Delhi, Chennai, Ahmedabad, Bengaluru, Hyderabad"
+    }
+];
+
+let currentCAFilter = 'all';
+let searchQuery = '';
+
+function renderCAs(firms) {
+    const grid = document.getElementById('caGrid');
+    grid.innerHTML = firms.map((firm, i) => {
+        const serviceTags = firm.services.map(s =>
+            `<span class="service-tag">${s}</span>`
+        ).join('');
+
+        const bestForTags = firm.bestFor.map(b =>
+            `<span class="bestfor-tag">${b.charAt(0).toUpperCase() + b.slice(1)}</span>`
+        ).join('');
+
+        return `
+        <div class="ca-card" style="animation-delay: ${i * 0.08}s" id="ca-${firm.name.toLowerCase().replace(/\s+/g, '-')}">
+            <div class="ca-card-header">
+                <div class="ca-logo" style="background: ${firm.color}15; color: ${firm.color}">
+                    <span>${firm.logo}</span>
+                </div>
+                <div>
+                    <h3 class="ca-name">${firm.name}</h3>
+                    <span class="ca-since">Est. ${firm.founded}</span>
+                </div>
+            </div>
+            <p class="ca-desc">${firm.description}</p>
+            <div class="ca-section">
+                <span class="ca-section-label">Services</span>
+                <div class="ca-tags">${serviceTags}</div>
+            </div>
+            <div class="ca-section">
+                <span class="ca-section-label">Best For</span>
+                <div class="ca-tags">${bestForTags}</div>
+            </div>
+            <div class="ca-section">
+                <span class="ca-section-label">Offices</span>
+                <p class="ca-offices">${firm.offices}</p>
+            </div>
+            <a href="${firm.website}" target="_blank" rel="noopener" class="btn btn-primary btn-full btn-sm ca-visit-btn">
+                Visit Website <span class="btn-arrow">→</span>
+            </a>
+        </div>`;
+    }).join('');
+}
+
+function filterCA(type) {
+    currentCAFilter = type;
+    document.querySelectorAll('#caTypeFilter .chip').forEach(c => c.classList.remove('chip-active'));
+    document.querySelector(`#caTypeFilter [data-type="${type}"]`).classList.add('chip-active');
+    applyCAFilters();
+}
+
+function searchCA(query) {
+    searchQuery = query.toLowerCase();
+    applyCAFilters();
+}
+
+function applyCAFilters() {
+    let firms = [...CA_FIRMS];
+
+    if (currentCAFilter !== 'all') {
+        firms = firms.filter(f => f.bestFor.includes(currentCAFilter));
+    }
+    if (searchQuery) {
+        firms = firms.filter(f =>
+            f.name.toLowerCase().includes(searchQuery) ||
+            f.services.some(s => s.toLowerCase().includes(searchQuery))
+        );
+    }
+    renderCAs(firms);
+}
+
+document.addEventListener('DOMContentLoaded', () => renderCAs(CA_FIRMS));
+</script>
+{% endblock %}

@@ -1,0 +1,11 @@
+flask
+pandas
+scikit-learn
+numpy
+python-dotenv
+flask-mail
+flask-limiter
+flask-wtf
+google-generativeai
+Pillow
+pymongo[srv]

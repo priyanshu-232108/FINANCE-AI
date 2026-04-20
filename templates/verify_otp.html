@@ -1,0 +1,102 @@
+{% extends 'base.html' %}
+{% block title %}Verify OTP{% endblock %}
+
+{% block content %}
+<div class="auth-container">
+    <div class="auth-card">
+        <div class="auth-header">
+            <div class="auth-icon">🔐</div>
+            <h1>Verify Your Email</h1>
+            <p class="auth-subtitle">We've sent a 6-digit OTP to <strong>{{ email }}</strong></p>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">
+                        <span class="alert-icon">
+                            {% if category == 'danger' %}❌{% elif category == 'success' %}✅{% elif category == 'info' %}ℹ️{% else %}⚠️{% endif %}
+                        </span>
+                        <span class="alert-text">{{ message }}</span>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <form method="POST" action="{{ url_for('verify_otp') }}" class="auth-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-group">
+                <label for="otp">Enter OTP</label>
+                <input type="text" id="otp" name="otp" class="input otp-input"
+                       placeholder="● ● ● ● ● ●"
+                       maxlength="6" pattern="[0-9]{6}" inputmode="numeric"
+                       autocomplete="one-time-code" required autofocus>
+                <span class="input-hint">Check your email inbox (and spam folder)</span>
+            </div>
+            <button type="submit" class="btn btn-primary btn-full">
+                Verify OTP <span class="btn-arrow">→</span>
+            </button>
+        </form>
+
+        <div class="auth-divider">
+            <span>didn't receive it?</span>
+        </div>
+
+        <form method="POST" action="{{ url_for('resend_otp') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-outline btn-full">
+                Resend OTP
+            </button>
+        </form>
+
+        <div class="auth-footer">
+            <a href="{{ url_for('signup') }}">← Back to Sign Up</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+    .otp-input {
+        text-align: center;
+        font-size: 1.8rem;
+        font-weight: 700;
+        letter-spacing: 12px;
+        padding: 16px 24px;
+        font-family: 'Inter', monospace;
+    }
+
+    .auth-icon {
+        font-size: 3rem;
+        margin-bottom: 8px;
+    }
+
+    .auth-subtitle {
+        color: var(--text-muted);
+        font-size: 0.95rem;
+        margin-top: 4px;
+    }
+
+    .auth-subtitle strong {
+        color: var(--accent);
+    }
+
+    .auth-divider {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        margin: 20px 0;
+        color: var(--text-muted);
+        font-size: 0.85rem;
+    }
+
+    .auth-divider::before,
+    .auth-divider::after {
+        content: '';
+        flex: 1;
+        height: 1px;
+        background: var(--border);
+    }
+</style>
+{% endblock %}

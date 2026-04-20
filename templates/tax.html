@@ -1,0 +1,375 @@
+{% extends 'base.html' %}
+{% block title %}Smart Tax Planner{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="header-text">
+        <h1>Smart Tax Planner</h1>
+        <p>Compare Old vs New tax regime & get smart saving suggestions</p>
+    </div>
+</div>
+
+<!-- Compliance Notice -->
+<div class="alert alert-info" style="margin-bottom: 28px;" id="tax-notice">
+    <span class="alert-icon">⚖️</span>
+    <span class="alert-text">This tool is for educational purposes and legal tax planning only. Tax slabs are as per FY 2024–25 (AY 2025–26). Consult a CA for personalized advice.</span>
+    <button class="alert-close" onclick="this.parentElement.remove()">×</button>
+</div>
+
+<!-- Tax Input Card -->
+<div class="card tax-input-card" id="tax-input-card">
+    <div class="card-header">
+        <h2>💰 Enter Your Annual Income</h2>
+    </div>
+    <div class="tax-input-row">
+        <div class="form-group tax-input-group">
+            <label for="annualIncome">Gross Annual Income (₹)</label>
+            <input type="number" id="annualIncome" class="input tax-input" placeholder="e.g. 1200000" value="1200000" min="0" step="10000">
+        </div>
+        <div class="form-group tax-input-group">
+            <label for="deductions80C">Section 80C Deductions (₹)</label>
+            <input type="number" id="deductions80C" class="input tax-input" placeholder="Max ₹1,50,000" value="150000" min="0" max="150000" step="5000">
+            <span class="input-hint">PPF, ELSS, LIC, EPF, Tuition Fees (Max ₹1,50,000)</span>
+        </div>
+        <div class="form-group tax-input-group">
+            <label for="deductions80D">Section 80D – Health Insurance (₹)</label>
+            <input type="number" id="deductions80D" class="input tax-input" placeholder="Max ₹25,000" value="25000" min="0" max="100000" step="5000">
+            <span class="input-hint">Self: ₹25K / Senior Parents: ₹50K extra</span>
+        </div>
+        <div class="form-group tax-input-group">
+            <label for="deductionsNPS">Section 80CCD(1B) – NPS (₹)</label>
+            <input type="number" id="deductionsNPS" class="input tax-input" placeholder="Max ₹50,000" value="0" min="0" max="50000" step="5000">
+            <span class="input-hint">Additional NPS deduction (Max ₹50,000)</span>
+        </div>
+        <button class="btn btn-primary" onclick="calculateTax()" id="calc-tax-btn">
+            <span>Calculate Tax</span>
+            <span class="btn-arrow">→</span>
+        </button>
+    </div>
+</div>
+
+<!-- Tax Results -->
+<div class="tax-results" id="taxResults" style="display:none;">
+
+    <!-- Comparison Cards -->
+    <div class="tax-comparison" id="tax-comparison">
+        <div class="tax-regime-card regime-old" id="old-regime-card">
+            <div class="regime-header">
+                <span class="regime-label">Old Regime</span>
+                <span class="regime-badge" id="oldBadge"></span>
+            </div>
+            <div class="regime-amount" id="oldTax">₹0</div>
+            <div class="regime-detail">
+                <span>Taxable Income</span>
+                <span id="oldTaxable">₹0</span>
+            </div>
+            <div class="regime-detail">
+                <span>Deductions Used</span>
+                <span id="oldDeductions">₹0</span>
+            </div>
+            <div class="regime-detail">
+                <span>Effective Rate</span>
+                <span id="oldEffective">0%</span>
+            </div>
+        </div>
+
+        <div class="tax-vs">
+            <span class="vs-text">VS</span>
+            <div class="savings-tag" id="savingsTag">You save ₹0</div>
+        </div>
+
+        <div class="tax-regime-card regime-new" id="new-regime-card">
+            <div class="regime-header">
+                <span class="regime-label">New Regime</span>
+                <span class="regime-badge" id="newBadge"></span>
+            </div>
+            <div class="regime-amount" id="newTax">₹0</div>
+            <div class="regime-detail">
+                <span>Taxable Income</span>
+                <span id="newTaxable">₹0</span>
+            </div>
+            <div class="regime-detail">
+                <span>Standard Deduction</span>
+                <span>₹75,000</span>
+            </div>
+            <div class="regime-detail">
+                <span>Effective Rate</span>
+                <span id="newEffective">0%</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tax Slabs Breakdown -->
+    <div class="tax-slabs-grid">
+        <div class="card slab-card" id="old-slabs-card">
+            <div class="card-header">
+                <h2>Old Regime Slabs</h2>
+            </div>
+            <div class="slab-table" id="oldSlabs"></div>
+        </div>
+        <div class="card slab-card" id="new-slabs-card">
+            <div class="card-header">
+                <h2>New Regime Slabs (FY 2024-25)</h2>
+            </div>
+            <div class="slab-table" id="newSlabs"></div>
+        </div>
+    </div>
+
+    <!-- Smart Suggestions -->
+    <div class="card suggestions-card" id="suggestions-card">
+        <div class="card-header">
+            <h2>🧠 Smart Tax-Saving Suggestions</h2>
+            <span class="badge badge-smart">Legal Tax Planning</span>
+        </div>
+        <div class="suggestions-grid" id="suggestionsGrid">
+            <!-- Filled by JS -->
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ─── Tax Slabs (FY 2024-25, AY 2025-26) ──────────────────────
+
+// Old Regime (with ₹50,000 standard deduction for salaried)
+const OLD_SLABS = [
+    { min: 0, max: 250000, rate: 0, label: "₹0 – ₹2,50,000" },
+    { min: 250000, max: 500000, rate: 5, label: "₹2,50,001 – ₹5,00,000" },
+    { min: 500000, max: 1000000, rate: 20, label: "₹5,00,001 – ₹10,00,000" },
+    { min: 1000000, max: Infinity, rate: 30, label: "Above ₹10,00,000" }
+];
+
+// New Regime (FY 2024-25 — Budget 2024, ₹75,000 standard deduction)
+const NEW_SLABS = [
+    { min: 0, max: 300000, rate: 0, label: "₹0 – ₹3,00,000" },
+    { min: 300000, max: 700000, rate: 5, label: "₹3,00,001 – ₹7,00,000" },
+    { min: 700000, max: 1000000, rate: 10, label: "₹7,00,001 – ₹10,00,000" },
+    { min: 1000000, max: 1200000, rate: 15, label: "₹10,00,001 – ₹12,00,000" },
+    { min: 1200000, max: 1500000, rate: 20, label: "₹12,00,001 – ₹15,00,000" },
+    { min: 1500000, max: Infinity, rate: 30, label: "Above ₹15,00,000" }
+];
+
+function calcTaxOnSlabs(income, slabs) {
+    let tax = 0;
+    let breakdown = [];
+
+    for (const slab of slabs) {
+        if (income <= slab.min) {
+            breakdown.push({ ...slab, taxableInSlab: 0, taxInSlab: 0 });
+            continue;
+        }
+        const upper = Math.min(income, slab.max);
+        const taxable = upper - slab.min;
+        const slabTax = taxable * slab.rate / 100;
+        tax += slabTax;
+        breakdown.push({ ...slab, taxableInSlab: taxable, taxInSlab: slabTax });
+    }
+    return { tax, breakdown };
+}
+
+function addCess(tax) {
+    return tax + tax * 0.04; // 4% Health & Education Cess
+}
+
+function calculateTax() {
+    const grossIncome = parseFloat(document.getElementById('annualIncome').value) || 0;
+    const ded80C = Math.min(parseFloat(document.getElementById('deductions80C').value) || 0, 150000);
+    const ded80D = Math.min(parseFloat(document.getElementById('deductions80D').value) || 0, 100000);
+    const dedNPS = Math.min(parseFloat(document.getElementById('deductionsNPS').value) || 0, 50000);
+
+    if (grossIncome <= 0) return;
+
+    // ─── Old Regime ──────────────────────────────────
+    const oldStdDeduction = 50000;
+    const totalOldDeductions = oldStdDeduction + ded80C + ded80D + dedNPS;
+    const oldTaxableIncome = Math.max(0, grossIncome - totalOldDeductions);
+    let oldResult = calcTaxOnSlabs(oldTaxableIncome, OLD_SLABS);
+    let oldTaxBeforeCess = oldResult.tax;
+
+    // Section 87A rebate — if taxable income ≤ ₹5L, tax = 0 under old regime
+    if (oldTaxableIncome <= 500000) oldTaxBeforeCess = 0;
+    const oldTaxFinal = addCess(oldTaxBeforeCess);
+
+    // ─── New Regime ──────────────────────────────────
+    const newStdDeduction = 75000;
+    const newTaxableIncome = Math.max(0, grossIncome - newStdDeduction);
+    let newResult = calcTaxOnSlabs(newTaxableIncome, NEW_SLABS);
+    let newTaxBeforeCess = newResult.tax;
+
+    // Section 87A rebate — if taxable income ≤ ₹7L, tax = 0 under new regime (FY 2024-25)
+    if (newTaxableIncome <= 700000) newTaxBeforeCess = 0;
+    const newTaxFinal = addCess(newTaxBeforeCess);
+
+    // ─── Display Results ──────────────────────────────
+    document.getElementById('taxResults').style.display = 'block';
+
+    const fmt = (n) => '₹' + Math.round(n).toLocaleString('en-IN');
+
+    document.getElementById('oldTax').textContent = fmt(oldTaxFinal);
+    document.getElementById('oldTaxable').textContent = fmt(oldTaxableIncome);
+    document.getElementById('oldDeductions').textContent = fmt(totalOldDeductions);
+    document.getElementById('oldEffective').textContent =
+        grossIncome > 0 ? (oldTaxFinal / grossIncome * 100).toFixed(1) + '%' : '0%';
+
+    document.getElementById('newTax').textContent = fmt(newTaxFinal);
+    document.getElementById('newTaxable').textContent = fmt(newTaxableIncome);
+    document.getElementById('newEffective').textContent =
+        grossIncome > 0 ? (newTaxFinal / grossIncome * 100).toFixed(1) + '%' : '0%';
+
+    // Highlight better regime
+    const oldCard = document.getElementById('old-regime-card');
+    const newCard = document.getElementById('new-regime-card');
+    const oldBadge = document.getElementById('oldBadge');
+    const newBadge = document.getElementById('newBadge');
+    const savingsTag = document.getElementById('savingsTag');
+
+    oldCard.classList.remove('regime-better');
+    newCard.classList.remove('regime-better');
+    oldBadge.textContent = '';
+    newBadge.textContent = '';
+
+    const savings = Math.abs(oldTaxFinal - newTaxFinal);
+
+    if (oldTaxFinal < newTaxFinal) {
+        oldCard.classList.add('regime-better');
+        oldBadge.textContent = '✅ Better';
+        savingsTag.textContent = `Old regime saves you ${fmt(savings)}`;
+        savingsTag.className = 'savings-tag savings-old';
+    } else if (newTaxFinal < oldTaxFinal) {
+        newCard.classList.add('regime-better');
+        newBadge.textContent = '✅ Better';
+        savingsTag.textContent = `New regime saves you ${fmt(savings)}`;
+        savingsTag.className = 'savings-tag savings-new';
+    } else {
+        savingsTag.textContent = 'Both regimes have equal tax';
+        savingsTag.className = 'savings-tag';
+    }
+
+    // ─── Slab Breakdown Tables ────────────────────────
+    renderSlabs('oldSlabs', OLD_SLABS, oldResult.breakdown, oldTaxableIncome);
+    renderSlabs('newSlabs', NEW_SLABS, newResult.breakdown, newTaxableIncome);
+
+    // ─── Smart Suggestions ────────────────────────────
+    generateSuggestions(grossIncome, ded80C, ded80D, dedNPS, oldTaxFinal, newTaxFinal);
+
+    // Scroll to results
+    document.getElementById('taxResults').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function renderSlabs(containerId, slabs, breakdown, taxableIncome) {
+    const container = document.getElementById(containerId);
+    container.innerHTML = breakdown.map(b => `
+        <div class="slab-row ${b.taxableInSlab > 0 ? 'slab-active' : ''}">
+            <div class="slab-range">${b.label}</div>
+            <div class="slab-rate">${b.rate}%</div>
+            <div class="slab-tax">${b.taxInSlab > 0 ? '₹' + Math.round(b.taxInSlab).toLocaleString('en-IN') : '—'}</div>
+        </div>
+    `).join('');
+}
+
+function generateSuggestions(income, ded80C, ded80D, dedNPS, oldTax, newTax) {
+    const suggestions = [];
+
+    // 80C suggestion
+    if (ded80C < 150000) {
+        const remaining = 150000 - ded80C;
+        suggestions.push({
+            icon: '📋',
+            title: 'Maximize Section 80C',
+            text: `You can still claim ₹${remaining.toLocaleString('en-IN')} more under 80C. Invest in PPF, ELSS mutual funds, or pay LIC premiums to reduce taxable income.`,
+            type: 'tip'
+        });
+    } else {
+        suggestions.push({
+            icon: '✅',
+            title: 'Section 80C Fully Utilized',
+            text: 'Great! You are using the full ₹1,50,000 deduction under Section 80C. Keep it up!',
+            type: 'success'
+        });
+    }
+
+    // 80D suggestion
+    if (ded80D < 25000) {
+        suggestions.push({
+            icon: '🏥',
+            title: 'Get Health Insurance (80D)',
+            text: `Health insurance premiums up to ₹25,000 (₹50,000 for senior citizens) are deductible under 80D. You can save additional tax by buying a health policy.`,
+            type: 'tip'
+        });
+    }
+
+    // NPS suggestion
+    if (dedNPS === 0) {
+        suggestions.push({
+            icon: '🏦',
+            title: 'Consider NPS (80CCD(1B))',
+            text: 'Investing in the National Pension System gives you an additional ₹50,000 deduction over 80C. It\'s a great way to build retirement savings and reduce tax.',
+            type: 'tip'
+        });
+    }
+
+    // Regime-specific advice
+    if (oldTax < newTax && income > 1000000) {
+        suggestions.push({
+            icon: '💡',
+            title: 'Old Regime is Better for You',
+            text: 'With your current deductions, the Old Regime saves you more tax. Continue maximizing 80C, 80D, and NPS deductions to keep it beneficial.',
+            type: 'warning'
+        });
+    } else if (newTax < oldTax) {
+        suggestions.push({
+            icon: '💡',
+            title: 'New Regime is Better for You',
+            text: 'The New Regime offers lower tax even without deductions. If you don\'t have many deductions (HRA, 80C, etc.), the New Regime is simpler and better.',
+            type: 'warning'
+        });
+    }
+
+    // High income tips
+    if (income > 1500000) {
+        suggestions.push({
+            icon: '📈',
+            title: 'Consider Tax-Saving Investments',
+            text: 'With income above ₹15L, consider ELSS funds (3-year lock-in), tax-free bonds, and Sukanya Samriddhi Yojana (if eligible) for long-term tax-efficient wealth creation.',
+            type: 'tip'
+        });
+    }
+
+    // Home loan
+    if (income > 800000) {
+        suggestions.push({
+            icon: '🏠',
+            title: 'Home Loan Interest (Section 24)',
+            text: 'Under the Old Regime, you can deduct up to ₹2,00,000 of home loan interest under Section 24(b). This can significantly reduce your taxable income.',
+            type: 'tip'
+        });
+    }
+
+    // HRA
+    if (income > 600000) {
+        suggestions.push({
+            icon: '🏢',
+            title: 'Claim HRA Exemption',
+            text: 'If you live in a rented house and receive HRA, claim the exemption under Section 10(13A) in the Old Regime. Keep rent receipts and landlord PAN handy.',
+            type: 'tip'
+        });
+    }
+
+    const grid = document.getElementById('suggestionsGrid');
+    grid.innerHTML = suggestions.map((s, i) => `
+        <div class="suggestion-item suggestion-${s.type}" style="animation-delay: ${i * 0.08}s" id="suggestion-${i}">
+            <span class="suggestion-icon">${s.icon}</span>
+            <div class="suggestion-content">
+                <h4 class="suggestion-title">${s.title}</h4>
+                <p class="suggestion-text">${s.text}</p>
+            </div>
+        </div>
+    `).join('');
+}
+
+// Auto-calculate on load
+document.addEventListener('DOMContentLoaded', () => calculateTax());
+</script>
+{% endblock %}

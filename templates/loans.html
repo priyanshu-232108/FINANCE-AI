@@ -1,0 +1,366 @@
+{% extends 'base.html' %}
+{% block title %}Loan Comparison{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="header-text">
+        <h1>Loan Comparison</h1>
+        <p>Compare interest rates from India's top banks</p>
+    </div>
+</div>
+
+<!-- Disclaimer -->
+<div class="alert alert-info" id="loan-disclaimer" style="margin-bottom: 28px;">
+    <span class="alert-icon">ℹ️</span>
+    <span class="alert-text">Interest rates shown are approximate and may vary based on credit score, loan amount, and tenure. Please verify with the respective bank.</span>
+    <button class="alert-close" onclick="this.parentElement.remove()">×</button>
+</div>
+
+<!-- Filters -->
+<div class="card filter-bar" id="loan-filters">
+    <div class="filter-row">
+        <div class="filter-group">
+            <label class="filter-label">Loan Type</label>
+            <div class="filter-chips" id="loanTypeFilter">
+                <button class="chip chip-active" data-type="all" onclick="filterLoans('all')">All</button>
+                <button class="chip" data-type="personal" onclick="filterLoans('personal')">Personal</button>
+                <button class="chip" data-type="home" onclick="filterLoans('home')">Home</button>
+                <button class="chip" data-type="car" onclick="filterLoans('car')">Car</button>
+                <button class="chip" data-type="business" onclick="filterLoans('business')">Business</button>
+            </div>
+        </div>
+        <div class="filter-group">
+            <label class="filter-label">Sort By</label>
+            <select class="input filter-select" id="sortSelect" onchange="sortLoans(this.value)">
+                <option value="default">Default</option>
+                <option value="lowest">Lowest Interest First</option>
+                <option value="highest">Highest Interest First</option>
+            </select>
+        </div>
+    </div>
+</div>
+
+<!-- Top 3 Banner -->
+<div class="top-banks-banner" id="top-banks-banner">
+    <div class="banner-header">
+        <span class="banner-icon">🏆</span>
+        <h3>Lowest Interest Rates</h3>
+    </div>
+    <div class="top-banks-grid" id="topBanksGrid">
+        <!-- Filled by JS -->
+    </div>
+</div>
+
+<!-- EMI Calculator -->
+<div class="card emi-card" id="emi-calculator">
+    <div class="card-header">
+        <h2>📟 EMI Calculator</h2>
+    </div>
+    <div class="emi-grid">
+        <div class="emi-inputs">
+            <div class="form-group">
+                <label for="emiAmount">Loan Amount (₹)</label>
+                <input type="number" id="emiAmount" class="input" placeholder="e.g. 1000000" value="1000000" min="10000">
+            </div>
+            <div class="form-group">
+                <label for="emiRate">Interest Rate (%)</label>
+                <input type="number" id="emiRate" class="input" placeholder="e.g. 10" value="10" step="0.1" min="1" max="30">
+            </div>
+            <div class="form-group">
+                <label for="emiTenure">Tenure (Years)</label>
+                <input type="number" id="emiTenure" class="input" placeholder="e.g. 5" value="5" min="1" max="30">
+            </div>
+            <button class="btn btn-primary" onclick="calculateEMI()" id="calc-emi-btn">Calculate EMI</button>
+        </div>
+        <div class="emi-result" id="emiResult">
+            <div class="emi-result-item">
+                <span class="emi-result-label">Monthly EMI</span>
+                <span class="emi-result-value" id="emiMonthly">₹21,247</span>
+            </div>
+            <div class="emi-result-item">
+                <span class="emi-result-label">Total Interest</span>
+                <span class="emi-result-value emi-interest" id="emiInterest">₹2,74,824</span>
+            </div>
+            <div class="emi-result-item">
+                <span class="emi-result-label">Total Payment</span>
+                <span class="emi-result-value" id="emiTotal">₹12,74,824</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Bank Cards Grid -->
+<div class="banks-grid" id="banksGrid">
+    <!-- Filled by JS -->
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ─── Bank Data ──────────────────────────────────────────────
+const BANKS = [
+    {
+        name: "State Bank of India",
+        short: "SBI",
+        logo: "🏛️",
+        color: "#2196F3",
+        loans: {
+            personal: { min: 11.00, max: 15.00 },
+            home:     { min: 8.25, max: 9.65 },
+            car:      { min: 8.65, max: 9.80 },
+            business: { min: 11.00, max: 16.50 }
+        },
+        badges: ["Low Interest"],
+        highlight: true
+    },
+    {
+        name: "HDFC Bank",
+        short: "HDFC",
+        logo: "🏦",
+        color: "#004C8F",
+        loans: {
+            personal: { min: 10.50, max: 16.00 },
+            home:     { min: 8.35, max: 9.75 },
+            car:      { min: 8.50, max: 11.50 },
+            business: { min: 11.50, max: 18.00 }
+        },
+        badges: ["Best Offer"],
+        highlight: true
+    },
+    {
+        name: "ICICI Bank",
+        short: "ICICI",
+        logo: "🏧",
+        color: "#F57C00",
+        loans: {
+            personal: { min: 10.75, max: 16.50 },
+            home:     { min: 8.40, max: 9.85 },
+            car:      { min: 8.70, max: 12.00 },
+            business: { min: 12.00, max: 19.00 }
+        },
+        badges: [],
+        highlight: false
+    },
+    {
+        name: "Axis Bank",
+        short: "Axis",
+        logo: "🔷",
+        color: "#97144D",
+        loans: {
+            personal: { min: 10.49, max: 18.00 },
+            home:     { min: 8.50, max: 9.95 },
+            car:      { min: 8.85, max: 12.00 },
+            business: { min: 12.50, max: 19.50 }
+        },
+        badges: ["Low Interest"],
+        highlight: false
+    },
+    {
+        name: "Kotak Mahindra Bank",
+        short: "Kotak",
+        logo: "🔶",
+        color: "#ED1C24",
+        loans: {
+            personal: { min: 10.99, max: 16.99 },
+            home:     { min: 8.50, max: 9.65 },
+            car:      { min: 8.70, max: 11.00 },
+            business: { min: 12.00, max: 18.50 }
+        },
+        badges: [],
+        highlight: false
+    },
+    {
+        name: "Bank of Baroda",
+        short: "BoB",
+        logo: "🏛️",
+        color: "#F15A22",
+        loans: {
+            personal: { min: 11.40, max: 17.60 },
+            home:     { min: 8.30, max: 10.30 },
+            car:      { min: 8.70, max: 11.50 },
+            business: { min: 11.50, max: 17.00 }
+        },
+        badges: ["Low Interest"],
+        highlight: false
+    },
+    {
+        name: "Punjab National Bank",
+        short: "PNB",
+        logo: "🏦",
+        color: "#0033A0",
+        loans: {
+            personal: { min: 11.25, max: 16.75 },
+            home:     { min: 8.30, max: 10.00 },
+            car:      { min: 8.65, max: 11.00 },
+            business: { min: 11.00, max: 16.00 }
+        },
+        badges: [],
+        highlight: false
+    },
+    {
+        name: "Canara Bank",
+        short: "Canara",
+        logo: "🏛️",
+        color: "#FFD700",
+        loans: {
+            personal: { min: 11.45, max: 16.95 },
+            home:     { min: 8.35, max: 10.25 },
+            car:      { min: 8.75, max: 11.25 },
+            business: { min: 11.75, max: 17.50 }
+        },
+        badges: [],
+        highlight: false
+    },
+    {
+        name: "IDFC First Bank",
+        short: "IDFC",
+        logo: "🟢",
+        color: "#822980",
+        loans: {
+            personal: { min: 10.49, max: 16.00 },
+            home:     { min: 8.50, max: 10.00 },
+            car:      { min: 8.85, max: 12.50 },
+            business: { min: 12.50, max: 20.00 }
+        },
+        badges: ["Best Offer"],
+        highlight: true
+    },
+    {
+        name: "Union Bank of India",
+        short: "Union",
+        logo: "🏛️",
+        color: "#0066B3",
+        loans: {
+            personal: { min: 11.35, max: 16.50 },
+            home:     { min: 8.30, max: 10.15 },
+            car:      { min: 8.70, max: 11.00 },
+            business: { min: 11.25, max: 16.75 }
+        },
+        badges: [],
+        highlight: false
+    }
+];
+
+const LOAN_LABELS = {
+    personal: "Personal Loan",
+    home: "Home Loan",
+    car: "Car Loan",
+    business: "Business Loan"
+};
+
+let currentFilter = 'all';
+
+// ─── Render ──────────────────────────────────────────────────
+function renderBanks(banks) {
+    const grid = document.getElementById('banksGrid');
+    grid.innerHTML = banks.map((bank, i) => {
+        const loanTypes = currentFilter === 'all'
+            ? Object.keys(bank.loans)
+            : [currentFilter];
+
+        const loanRows = loanTypes.map(type => `
+            <div class="loan-row">
+                <span class="loan-type-label">${LOAN_LABELS[type]}</span>
+                <span class="loan-rate">${bank.loans[type].min}% – ${bank.loans[type].max}%</span>
+            </div>
+        `).join('');
+
+        const badges = bank.badges.map(b =>
+            `<span class="bank-badge ${b === 'Best Offer' ? 'badge-best' : 'badge-low'}">${b}</span>`
+        ).join('');
+
+        return `
+        <div class="bank-card ${bank.highlight ? 'bank-highlight' : ''}" style="animation-delay: ${i * 0.06}s" id="bank-${bank.short.toLowerCase()}">
+            <div class="bank-card-top">
+                <div class="bank-logo" style="background: ${bank.color}15; color: ${bank.color}">
+                    <span>${bank.logo}</span>
+                </div>
+                <div class="bank-info">
+                    <h3 class="bank-name">${bank.name}</h3>
+                    ${badges ? `<div class="bank-badges">${badges}</div>` : ''}
+                </div>
+            </div>
+            <div class="loan-rates">
+                ${loanRows}
+            </div>
+            <button class="btn btn-outline btn-full btn-sm bank-details-btn"
+                    onclick="populateEMI(${Object.values(bank.loans)[0].min})">
+                 Use Rate in EMI Calculator
+            </button>
+        </div>`;
+    }).join('');
+}
+
+function renderTopBanks() {
+    const loanType = currentFilter === 'all' ? 'home' : currentFilter;
+    const sorted = [...BANKS].sort((a, b) => a.loans[loanType].min - b.loans[loanType].min);
+    const top3 = sorted.slice(0, 3);
+
+    const grid = document.getElementById('topBanksGrid');
+    grid.innerHTML = top3.map((bank, i) => `
+        <div class="top-bank-item">
+            <span class="top-rank">#${i + 1}</span>
+            <span class="top-bank-logo" style="color: ${bank.color}">${bank.logo}</span>
+            <div class="top-bank-info">
+                <span class="top-bank-name">${bank.short}</span>
+                <span class="top-bank-rate">${bank.loans[loanType].min}%</span>
+            </div>
+        </div>
+    `).join('');
+}
+
+// ─── Filters ─────────────────────────────────────────────────
+function filterLoans(type) {
+    currentFilter = type;
+    document.querySelectorAll('#loanTypeFilter .chip').forEach(c => c.classList.remove('chip-active'));
+    document.querySelector(`[data-type="${type}"]`).classList.add('chip-active');
+    renderTopBanks();
+    sortLoans(document.getElementById('sortSelect').value);
+}
+
+function sortLoans(sortBy) {
+    let banks = [...BANKS];
+    const loanType = currentFilter === 'all' ? 'personal' : currentFilter;
+
+    if (sortBy === 'lowest') {
+        banks.sort((a, b) => a.loans[loanType].min - b.loans[loanType].min);
+    } else if (sortBy === 'highest') {
+        banks.sort((a, b) => b.loans[loanType].min - a.loans[loanType].min);
+    }
+    renderBanks(banks);
+}
+
+// ─── EMI Calculator ──────────────────────────────────────────
+function calculateEMI() {
+    const P = parseFloat(document.getElementById('emiAmount').value) || 0;
+    const annualRate = parseFloat(document.getElementById('emiRate').value) || 0;
+    const years = parseInt(document.getElementById('emiTenure').value) || 0;
+
+    if (P <= 0 || annualRate <= 0 || years <= 0) return;
+
+    const r = annualRate / 12 / 100;
+    const n = years * 12;
+    const emi = P * r * Math.pow(1 + r, n) / (Math.pow(1 + r, n) - 1);
+    const totalPayment = emi * n;
+    const totalInterest = totalPayment - P;
+
+    document.getElementById('emiMonthly').textContent = '₹' + Math.round(emi).toLocaleString('en-IN');
+    document.getElementById('emiInterest').textContent = '₹' + Math.round(totalInterest).toLocaleString('en-IN');
+    document.getElementById('emiTotal').textContent = '₹' + Math.round(totalPayment).toLocaleString('en-IN');
+}
+
+function populateEMI(rate) {
+    document.getElementById('emiRate').value = rate;
+    calculateEMI();
+    document.getElementById('emi-calculator').scrollIntoView({ behavior: 'smooth' });
+}
+
+// ─── Init ────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+    renderBanks(BANKS);
+    renderTopBanks();
+    calculateEMI();
+});
+</script>
+{% endblock %}

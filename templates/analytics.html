@@ -1,0 +1,328 @@
+{% extends 'base.html' %}
+{% block title %}Analytics{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="header-text">
+        <h1>Financial Analytics</h1>
+        <p>Smart insights into your spending patterns</p>
+    </div>
+</div>
+
+<!-- Summary Stats -->
+<div class="stats-grid stats-grid-3">
+    <div class="stat-card" id="stat-avg">
+        <div class="stat-icon stat-icon-blue">📊</div>
+        <div class="stat-info">
+            <span class="stat-label">Monthly Average</span>
+            <span class="stat-value">₹{{ '{:,.0f}'.format(analysis.monthly_avg) }}</span>
+        </div>
+    </div>
+    <div class="stat-card" id="stat-top">
+        <div class="stat-icon stat-icon-orange">🏆</div>
+        <div class="stat-info">
+            <span class="stat-label">Highest Category</span>
+            <span class="stat-value stat-value-text">{{ analysis.highest_category }}</span>
+        </div>
+    </div>
+    <div class="stat-card" id="stat-transactions">
+        <div class="stat-icon stat-icon-purple">🧾</div>
+        <div class="stat-info">
+            <span class="stat-label">Total Transactions</span>
+            <span class="stat-value">{{ analysis.expense_count }}</span>
+        </div>
+    </div>
+</div>
+
+<!-- Smart Insights -->
+<div class="card insights-card" id="insights-card">
+    <div class="card-header">
+        <h2>🧠 Smart Insights</h2>
+        <span class="badge badge-ai">Analytics</span>
+    </div>
+    <div class="insights-grid">
+        {% for insight in insights %}
+        <div class="insight-item insight-{{ insight.type }}" id="insight-{{ loop.index }}">
+            <span class="insight-icon">{{ insight.icon }}</span>
+            <p class="insight-text">{{ insight.message }}</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Advanced Pro Insights -->
+{% if gemini_insights %}
+<div class="card insights-card gemini-card" id="gemini-insights-card">
+    <div class="card-header">
+        <h2>✨ Advanced Pro Insights</h2>
+        <span class="badge badge-ai" style="background: linear-gradient(135deg, #667eea, #764ba2); color: #fff;">Pro Feature</span>
+    </div>
+    <div class="insights-grid">
+        {% for insight in gemini_insights %}
+        <div class="insight-item insight-{{ insight.type }}" id="gemini-insight-{{ loop.index }}" style="animation-delay: {{ loop.index * 0.1 }}s">
+            <span class="insight-icon">{{ insight.icon }}</span>
+            <div>
+                <strong style="color: var(--text-primary); display: block; margin-bottom: 4px;">{{ insight.title }}</strong>
+                <p class="insight-text" style="margin: 0;">{{ insight.message }}</p>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- AI Chat Box -->
+<div class="card" id="ai-chat-card">
+    <div class="card-header">
+        <h2>🤖 Ask Your Financial Advisor</h2>
+        <span class="badge badge-ai" style="background: linear-gradient(135deg, #667eea, #764ba2); color: #fff;">Virtual Advisor</span>
+    </div>
+    <div class="ai-chat-container">
+        <div class="ai-chat-messages" id="chatMessages">
+            <div class="ai-chat-message ai-message">
+                <span class="chat-avatar">👔</span>
+                <div class="chat-bubble">Hi! I'm your virtual finance advisor. Ask me anything about your spending, savings tips, or investment advice!</div>
+            </div>
+        </div>
+        <div class="ai-chat-input">
+            <input type="text" id="chatInput" class="input" placeholder="e.g. How can I save more on food?" onkeypress="if(event.key==='Enter') sendChat()">
+            <button class="btn btn-primary" onclick="sendChat()" id="send-chat-btn">Send →</button>
+        </div>
+    </div>
+</div>
+
+<!-- Prediction -->
+<div class="card prediction-card" id="prediction-card">
+    <div class="card-header">
+        <h2>🔮 Next Month Prediction</h2>
+        <span class="badge badge-ml">Machine Learning</span>
+    </div>
+    <div class="prediction-content">
+        {% if prediction.predicted %}
+        <div class="prediction-main">
+            <div class="prediction-amount">
+                <span class="prediction-label">Predicted Spending</span>
+                <span class="prediction-value" id="prediction-value">₹{{ '{:,.0f}'.format(prediction.predicted) }}</span>
+            </div>
+            <div class="prediction-meta">
+                <div class="prediction-detail">
+                    <span class="detail-label">Confidence</span>
+                    <span class="detail-value confidence-{{ prediction.confidence }}">{{ prediction.confidence|capitalize }}</span>
+                </div>
+                <div class="prediction-detail">
+                    <span class="detail-label">Trend</span>
+                    <span class="detail-value trend-{{ prediction.trend }}">
+                        {% if prediction.trend == 'increasing' %}📈{% elif prediction.trend == 'decreasing' %}📉{% else %}➡️{% endif %}
+                        {{ prediction.trend|capitalize }}
+                    </span>
+                </div>
+                <div class="prediction-detail">
+                    <span class="detail-label">Model Accuracy (R²)</span>
+                    <span class="detail-value">{{ prediction.r2_score }}</span>
+                </div>
+            </div>
+        </div>
+        <p class="prediction-note">{{ prediction.message }}</p>
+        {% else %}
+        <div class="prediction-empty">
+            <span class="prediction-empty-icon">📉</span>
+            <p>{{ prediction.message }}</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Monthly Comparison Chart -->
+<div class="card chart-card" id="comparison-chart-card">
+    <div class="card-header">
+        <h2>Monthly Comparison</h2>
+    </div>
+    <div class="chart-container">
+        <canvas id="comparisonChart"></canvas>
+    </div>
+</div>
+
+<!-- Category Breakdown -->
+<div class="card" id="category-breakdown-card">
+    <div class="card-header">
+        <h2>Category Breakdown</h2>
+    </div>
+    <div class="category-grid">
+        {% for cat, data in analysis.category_breakdown.items() %}
+        <div class="category-breakdown-item" id="category-{{ cat|lower }}">
+            <div class="category-header">
+                <span class="category-badge category-{{ cat|lower }}">{{ cat }}</span>
+                <span class="category-total">₹{{ '{:,.0f}'.format(data.total) }}</span>
+            </div>
+            <div class="category-details">
+                <span>{{ data.count }} transactions</span>
+                <span>Avg: ₹{{ '{:,.0f}'.format(data.average) }}</span>
+            </div>
+            <div class="category-bar">
+                {% set max_total = analysis.category_breakdown.values()|map(attribute='total')|max %}
+                <div class="category-bar-fill category-fill-{{ cat|lower }}" style="width: {{ (data.total / max_total * 100)|round }}%"></div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Fraud Detection -->
+{% if fraud_alerts %}
+<div class="card fraud-card" id="fraud-card">
+    <div class="card-header">
+        <h2>🚨 Suspicious Transactions</h2>
+        <span class="badge badge-danger">Fraud Detection</span>
+    </div>
+    <div class="fraud-list">
+        {% for alert in fraud_alerts %}
+        <div class="fraud-item fraud-{{ alert.severity }}" id="fraud-{{ loop.index }}">
+            <div class="fraud-info">
+                <span class="fraud-amount">₹{{ '{:,.0f}'.format(alert.amount) }}</span>
+                <span class="fraud-category">{{ alert.category }}</span>
+                {% if alert.description %}<span class="fraud-desc">{{ alert.description }}</span>{% endif %}
+                <span class="fraud-date">{{ alert.date }}</span>
+            </div>
+            <div class="fraud-reason">
+                <span class="fraud-icon">⚠️</span>
+                <span>{{ alert.reason }}</span>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const monthlyData = {{ analysis.monthly_trend | tojson }};
+        loadComparisonChart(monthlyData);
+    });
+
+    async function sendChat() {
+        const input = document.getElementById('chatInput');
+        const messages = document.getElementById('chatMessages');
+        const question = input.value.trim();
+        if (!question) return;
+
+        // Add user message
+        messages.innerHTML += `
+            <div class="ai-chat-message user-message">
+                <div class="chat-bubble chat-user">${question}</div>
+                <span class="chat-avatar">👤</span>
+            </div>`;
+        input.value = '';
+
+        // Add loading indicator
+        const loadingId = 'loading-' + Date.now();
+        messages.innerHTML += `
+            <div class="ai-chat-message ai-message" id="${loadingId}">
+                <span class="chat-avatar">👔</span>
+                <div class="chat-bubble chat-loading">Thinking...</div>
+            </div>`;
+        messages.scrollTop = messages.scrollHeight;
+
+        try {
+            const response = await fetch('/api/ai_chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ question })
+            });
+            const data = await response.json();
+
+            // Remove loading
+            document.getElementById(loadingId)?.remove();
+
+            const answer = data.answer || data.error || 'Sorry, I could not process that.';
+            messages.innerHTML += `
+                <div class="ai-chat-message ai-message">
+                    <span class="chat-avatar">👔</span>
+                    <div class="chat-bubble">${answer}</div>
+                </div>`;
+        } catch (err) {
+            document.getElementById(loadingId)?.remove();
+            messages.innerHTML += `
+                <div class="ai-chat-message ai-message">
+                    <span class="chat-avatar">👔</span>
+                    <div class="chat-bubble">Sorry, something went wrong. Please check your connection.</div>
+                </div>`;
+        }
+        messages.scrollTop = messages.scrollHeight;
+    }
+</script>
+
+<style>
+    .gemini-card {
+        border: 1px solid rgba(102, 126, 234, 0.2);
+        background: linear-gradient(135deg, rgba(102, 126, 234, 0.05), rgba(118, 75, 162, 0.05));
+    }
+
+    .ai-chat-container {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+    }
+
+    .ai-chat-messages {
+        max-height: 350px;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding: 8px 4px;
+    }
+
+    .ai-chat-message {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+    }
+
+    .user-message {
+        justify-content: flex-end;
+    }
+
+    .chat-avatar {
+        font-size: 1.4rem;
+        flex-shrink: 0;
+        margin-top: 2px;
+    }
+
+    .chat-bubble {
+        background: var(--card-hover);
+        padding: 10px 16px;
+        border-radius: 12px;
+        font-size: 0.92rem;
+        line-height: 1.5;
+        max-width: 80%;
+        color: var(--text-secondary);
+    }
+
+    .chat-user {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: #fff;
+    }
+
+    .chat-loading {
+        opacity: 0.6;
+        font-style: italic;
+        animation: pulse 1s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+        0%, 100% { opacity: 0.4; }
+        50% { opacity: 0.8; }
+    }
+
+    .ai-chat-input {
+        display: flex;
+        gap: 10px;
+    }
+
+    .ai-chat-input .input {
+        flex: 1;
+    }
+</style>
+{% endblock %}
